@@ -120,7 +120,7 @@ qr_boost <- gamboost(stunting ~
 #' be neglecting the fact that its conditional distribution varies with age/other_Variable, as can be seen in Figure n1. The question asked then shold not be
 #' restricted to the quantile level rather to the quantile conditioned on age/other_Variable...
 #' 
-#' 
+#' Writing in progress any update will be posted here
 #' 
 
 
