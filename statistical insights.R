@@ -1,6 +1,6 @@
 #' While reading the paper quantile regression by Waldman (2018), he exemplified some key points with the use
 #' of a data set of Body Mass Index of Dutch Boys and Malnutrition in India, the following script intends to replicate her findings
-#' in order we can use a similar approach with out biomarker data
+#' in order we can use a similar approach with our biomarker data
 x <- c('openxlsx','plyr','ggplot2','gam','gamlss.data','gamlss','gamboostLSS','BayesX','mgcv') # List of packages here
 packages <- as.data.frame(installed.packages())      # List of currently installed packages
 for (i in 1:length(x)) {
@@ -15,13 +15,25 @@ for (i in 1:length(x)) {
 ######################################
 # # Working with BMI of Dutch Boys # #
 ######################################
-mydata <- gamlss.data::dbbmi # the included variables are age and Body Mass Index
+mydata <- gamlss.data::dbbmi # the Dutch boys body mass data
 
-h0 <- hist(mydata$bmi, density = 20, breaks=40, freq = FALSE, #density=10
-           xlab="BMI", ylim=c(0, 0.20), # 
-           main="Normal curve over histogram of BMI")
-so <- curve(dnorm(x, mean=mean(mydata$bmi), sd=sd(mydata$bmi)), 
-      col="darkblue", lwd=2, add=TRUE, yaxt="n")
+mycurve01 <- function(dataset,varname,varlabel,breaks_1){
+  #' The explanation of the fields are as follow
+  #'  chr   dataset   <- a data frame with at least one variable, the one to be analyzed 
+  #'  chr   varname   <- is the name of the variable of interest as given by str(dataset) 
+  #'  chr   varlabel  <- is the name of the variable of interest to be displayed as the x axis in the figure
+  #'     figure_lab   <- is the name of the figure which usually contains " 
+  #'  num   breaks_1  <- it follows the arguments of hist, see 
+  hist(eval(parse(text = paste0(dataset,'$',varname))), breaks=breaks_1, freq = FALSE, #density=10
+             xlab="BMI", ylim=c(0, 0.20), # 
+             main=paste0("Normal curve over histogram of ",varlabel))
+  curve(dnorm(x, mean=mean(eval(parse(text = paste0(dataset,'$',varname)))),
+                    sd=sd(eval(parse(text = paste0(dataset,'$',varname))))), 
+              col="darkblue", lwd=2, add=TRUE, yaxt="n")
+}
+# Example 1
+mycurve01('mydata','bmi','BMI',40)
+
 
 (h1 <- ggplot(mydata, aes(x=age,y=bmi)) +
     geom_point(alpha = 0.4) +
@@ -55,9 +67,9 @@ quantile(mydata$bmi,probs=c(.95))        # P(BMI < y) = 95% data
 #' is slightly above the median
 (h2 <- ggplot(mydata, aes(x=age,y=bmi)) +
     geom_point(alpha = 0.3) +
-    geom_smooth(method = "gam", formula = y ~ s(x, bs = "cs"), se=TRUE) +
-    stat_summary_bin(fun.y='median', bins=20,
-                     color='orange', size=1, geom='line')
+    geom_smooth(method = "gam", formula = y ~ s(x, bs = "cs"), se=TRUE) #+
+    #stat_summary_bin(fun.y='median', bins=20,
+                     #color='orange', size=1, geom='line')
 )
 
 #' Additive quantile regression
@@ -121,7 +133,8 @@ qr_boost <- gamboost(stunting ~
 #' restricted to the quantile level rather to the quantile conditioned on age/other_Variable...
 #' 
 #' Writing in progress any update will be posted here
-#' 
+#'
+#' https://www.gamlss.com 
 
 
 
