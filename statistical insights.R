@@ -1,7 +1,11 @@
 #' While reading the paper quantile regression by Waldman (2018), he exemplified some key points with the use
 #' of a data set of Body Mass Index of Dutch Boys and Malnutrition in India, the following script intends to replicate her findings
 #' in order we can use a similar approach with our biomarker data
-x <- c('openxlsx','plyr','ggplot2','gam','gamlss.data','gamlss','gamboostLSS','BayesX','mgcv') # List of packages here
+##########################################
+# # Setting up the working environment # #
+##########################################
+x <- c('openxlsx','plyr','ggplot2','gam','gamlss.data','gamlss','gamboostLSS',
+       'BayesX','mgcv','grid','ggthemes','scales') # List of packages here
 packages <- as.data.frame(installed.packages())      # List of currently installed packages
 for (i in 1:length(x)) {
   if(x[i] %in% packages$Package == TRUE){
@@ -12,66 +16,160 @@ for (i in 1:length(x)) {
   }
 }
 
-######################################
-# # Working with BMI of Dutch Boys # #
-######################################
-mydata <- gamlss.data::dbbmi # the Dutch boys body mass data
+#####################################
+# # Some visualization adornments # #
+#####################################
+theme_Publication <- function(base_size=14,base_family="serif") { # optional to serif/helvetica
+  (theme_foundation(base_size=base_size, base_family=base_family)
+   + theme(plot.title = element_text(face = "bold",
+                                     size = rel(1.2), hjust = 0.5),
+           text = element_text(),
+           panel.background = element_rect(colour = NA),
+           plot.background = element_rect(colour = NA),
+           panel.border = element_rect(colour = NA),
+           axis.title = element_text(face = "bold",size = rel(1)),
+           axis.title.y = element_text(angle = 90,vjust =2),
+           axis.title.x = element_text(vjust = -0.2),
+           axis.text = element_text(),
+           axis.text.x = element_text(angle = 0), # rotate in case long strings
+           axis.line = element_line(colour="black"),
+           axis.ticks = element_line(),
+           panel.grid.major = element_line(colour="#f0f0f0"),
+           panel.grid.minor = element_blank(),
+           legend.key = element_rect(colour = NA),
+           legend.position = "bottom",
+           legend.direction = "horizontal",
+           legend.key.size= unit(0.2, "cm"),
+           #legend.margin = unit(0, "cm"), # optionally comment
+           legend.title = element_blank(), #optional == legend.title = element_text(face="italic"), element_blank()
+           plot.margin=unit(c(10,5,5,5),"mm"),
+           strip.background=element_rect(colour="#f0f0f0",fill="#f0f0f0"),
+           strip.text = element_text(face="bold")
+   ))
+}
 
-mycurve01 <- function(dataset,varname,varlabel,breaks_1){
+scale_fill_Publication <- function(...){
+  discrete_scale("fill","Publication",manual_pal(values = c("#386cb0","#fdb462","#7fc97f","#ef3b2c","#662506","#a6cee3","#fb9a99","#984ea3","#ffff33")),...)
+}
+
+scale_colour_Publication <- function(...){
+  discrete_scale("colour","Publication",manual_pal(values = c("#386cb0","#fdb462","#7fc97f","#ef3b2c","#662506","#a6cee3","#fb9a99","#984ea3","#ffff33")),...)
+}
+##########################################
+# # Normal curve over histogram of BMI # #
+##########################################
+mydata1 <- gamlss.data::dbbmi # the Dutch boys body mass data
+mycurve01 <- function(dataset,varname,varlabel,divisor){ # ,breaks_1
   #' The explanation of the fields are as follow
   #'  chr   dataset   <- a data frame with at least one variable, the one to be analyzed 
   #'  chr   varname   <- is the name of the variable of interest as given by str(dataset) 
   #'  chr   varlabel  <- is the name of the variable of interest to be displayed as the x axis in the figure
-  #'     figure_lab   <- is the name of the figure which usually contains " 
-  #'  num   breaks_1  <- it follows the arguments of hist, see 
-  hist(eval(parse(text = paste0(dataset,'$',varname))), breaks=breaks_1, freq = FALSE, #density=10
-             xlab="BMI", ylim=c(0, 0.20), # 
-             main=paste0("Normal curve over histogram of ",varlabel))
-  curve(dnorm(x, mean=mean(eval(parse(text = paste0(dataset,'$',varname)))),
-                    sd=sd(eval(parse(text = paste0(dataset,'$',varname))))), 
-              col="darkblue", lwd=2, add=TRUE, yaxt="n")
+  #'  num   divisor   <- is a number to divide the x axis on the figure, if missing default is 1
+  if(missing(divisor)){
+    divisor <- 1   # change this value in case you want a more broad or small column size
+  }
+  mini <- floor(min(eval(parse(text = paste0(dataset,'$',varname)))))
+  maxi <- ceiling(max(eval(parse(text = paste0(dataset,'$',varname)))))
+  (mycurvi <- ggplot(data=eval(parse(text = dataset)), aes(eval(parse(text = paste0(dataset,'$',varname))))) + 
+      geom_histogram(aes(y =..density..),
+                     breaks = seq(mini,maxi, by = divisor),
+                     col="#386cb0",
+                     fill="#fdb462",
+                     alpha=.2)+
+      #geom_density(col=2)+ density function, instead of normal curve as default
+      stat_function(fun = dnorm, args = list(mean = mean(eval(parse(text = paste0(dataset,'$',varname)))),
+                                             sd = sd(eval(parse(text = paste0(dataset,'$',varname))))))+
+      labs(title=paste0("Normal curve over histogram of ",varlabel),x=varlabel)
+  ) 
+  mycurvi + theme_Publication()+scale_fill_Publication()
 }
-# Example 1
-mycurve01('mydata','bmi','BMI',40)
+# Figure 1
+dataset  <- 'mydata1'
+varname  <- 'bmi'
+varlabel <- 'BMI'
+mycurve01(mydata,varname,varlabel)
+
+#########################################
+# # Scatterplot between two variables # #
+#########################################
+myscatter01 <- function(dataset,varname,varname2,varlabel,varlabel2,pointsz){
+  #' The explanation of the fields are as follow
+  #'  chr   dataset   <- a data frame with at least one variable, the one to be analyzed 
+  #'  chr   varname   <- is the name of the 1rs variable of interest as given by str(dataset) 
+  #'  chr   varname2  <- is the name of the 2nd variable of interest as given by str(dataset) 
+  #'  chr   varlabel  <- is the name of the variable of interest to be displayed as the y axis in the figure
+  #'  chr   varlabel2 <- is the name of the variable of interest to be displayed as the x axis in the figure
+  #'  num   pointsz   <- is a number indicating the size of points, if missing default is 1
+  maxi <- ceiling(max(eval(parse(text = paste0(dataset,'$',varname2)))))
+  #q10 <- seq(0.05, 0.95, by = 0.05)
+  q10 <- c(0.01,0.1,0.2,0.3,0.4,0.6,0.7,0.8,0.9,0.99)
+  if(missing(pointsz)){
+    pointsz <- 0.5   # change this value in case you want a larger or smaller point size
+  }
+  (myscat <- ggplot(data=eval(parse(text = dataset)), aes(x=eval(parse(text = varname2)),
+                                                          y=eval(parse(text = varname)))) + 
+      geom_point(alpha = pointsz) +
+      geom_smooth(method = "gam", formula = y ~ s(x, bs = "cs"), se = TRUE) + 
+      geom_quantile(quantiles = q10, method = "rqss", lambda = 0.8) + # formula=y ~ poly(x, 3) / formula = y ~ splines::bs(x, 3)
+      stat_summary_bin(fun.y='median', bins=maxi,    # optionally it can represent the median by changing fun.y to "median" or the mean with "mean"
+                       color='orange', size=pointsz*4, geom='point') + # the orange dots represent the median, change geom='line' if desired
+      labs(title=paste0("Scatterplot of ",varlabel," and ",varlabel2),x=varlabel2,y=varlabel)
+  )
+  myscat + theme_Publication()+scale_fill_Publication()
+}
+
+# Figure 2
+mydata1 <- gamlss.data::dbbmi # the Dutch boys body mass data
+dataset   <- 'mydata1'
+varname   <- 'bmi'
+varname2  <- 'age' 
+varlabel  <- 'BMI'
+varlabel2 <- 'Age'
+myscatter01(dataset,varname,varname2,varlabel,varlabel2)
+#' In this figure we can see that the mean as represented by the blue line is slightly above the median as represented by the orange dots
 
 
-(h1 <- ggplot(mydata, aes(x=age,y=bmi)) +
-    geom_point(alpha = 0.4) +
-    stat_summary_bin(fun.y='mean', bins=20,
-                     color='orange', size=2, geom='point'))
+#' To find the empirical distribution and the probability under the normally distributed assumption see the following
+#' For example, we would like to know the value of a distribution in the 95% quantile (theorical probability), in other words
+#' What value does the fitted Gaussian distribution yields for a BMI value of 30 P(BMI>30) 
 
-#' Finding the empirical distribution and the probability under the gaussian fit assumption
-#' The fitted Gaussian distribution yields P(BMI>30) = 1.91 *10^-5
-pnorm(30, mean = mean(mydata$bmi), sd = sd(mydata$bmi), lower.tail = FALSE) # 0.00001909675
-#' while the empirical probability
-emp_prob<-function(x,start,end){
-  sum(end>=x & x>=start)/length(x)}
-x <- mydata$bmi
-start <- 30
-end <- max(x)
-emp_prob(x,start,end) # 0.002056485
+the_vs_emp_prob<-function(dataset,varname,value_of_int){
+  #' Explanation of the fields below
+  #' chr   dataset     <- is the name of the dataset that contains the vector of values of interest
+  #' chr   varname     <- is the name of the variable of interest as given by str(dataset)
+  #' num  value_of_int <- is a value of interest that we want to find both theorical and empirical probability 
+  
+  options(scipen = 99)                  # turn off scientific notation 
+  round_fact <- 8
+  x <- eval(parse(text = paste0(dataset,'$',varname)))
+  end <- max(x)
+  #' theorical probability
+  theor <- round(pnorm(value_of_int, mean = mean(x),sd = sd(x), lower.tail = FALSE),round_fact)
+  #' empirical probability
+  empir <- round(sum(end>=x & x>=value_of_int)/length(x),round_fact)
+  cat(paste0('For example, the theoretical probability of a ',varname,' value equal to ',value_of_int,' is ',theor,' while the empirical probability is ',empir,
+             '\n the absolute difference between these values is ',round(abs(theor-empir),round_fact),'; below there is a report of some quantiles of interest\n'))
+  cat('\n')
+  print(quantile(x))                     # reports min, quantile, median, quantile and max.
+  cat('\n')
+  print(quantile(x,probs=c(.025,.975)))  # report the value under 2.5% and 97.5
+  cat('\n')
+  print(quantile(x,probs=c(.05,.95)))  # report the value under 2.5% and 97.5
+  cat('\n')
+  #The 95% quantile of the fitted normal distribution is 22.809, the 95% quantile of the data is 23.612.
+  x1 <- round(quantile(rnorm(length(x), mean=mean(x), sd=sd(x)),probs=c(.95)),round_fact)
+  x2 <- round(quantile(x,probs=c(.95)),round_fact)
+  cat(paste0('Thus, following a theorical distribution, the 95% quantile of the fitted normal distribution is ',x1,',while the\n',
+             '95% quantile of the data is ',x2,'. The absolute difference between these values is ',round(abs(x1-x2),round_fact),'.'))
+}
+# Results on Analyzing Quantiles on a extreme value of interest
+dataset <- 'mydata1'
+varname <- 'bmi'
+value_of_int <- 30
+the_vs_emp_prob(dataset,varname,value_of_int) 
 
-# which value dos y have to have such that holds? P(BMI < y) = 95%
-quantile(mydata$bmi)                     # first try, reports min, quantile, median, quantile and max.
-quantile(mydata$bmi,probs=c(.025,.975))  # second try, report the value under 2.5% and 97.5
-#The 95% quantile of the fitted normal distribution is 22.809, the 95% quantile of the data is 23.612.
-quantile(rnorm(length(mydata), mean=mean(mydata$bmi), sd=sd(mydata$bmi)),probs=c(.95)) # P(BMI < y) = 95% fitted normal / still incorrect
-quantile(mydata$bmi,probs=c(.95))        # P(BMI < y) = 95% data
-
-# The quantile conditioned on age?
-#' P-splines are a special way of modelling non-linear effects. For a detailed explanation see Fahrmeir et al. 2013
-#' 
-#' Modelling the BMI of Dutch boys
-#' mean regression
-#' A second visualization of the gact that the conditional distribution is skewed is the following Figure, in which we can see that the mean
-#' is slightly above the median
-(h2 <- ggplot(mydata, aes(x=age,y=bmi)) +
-    geom_point(alpha = 0.3) +
-    geom_smooth(method = "gam", formula = y ~ s(x, bs = "cs"), se=TRUE) #+
-    #stat_summary_bin(fun.y='median', bins=20,
-                     #color='orange', size=1, geom='line')
-)
-
+#########################
+# # 
 #' Additive quantile regression
 #' Data example II, Stunting in India
 mydata2 <- gamboostLSS::india
@@ -94,7 +192,6 @@ child_mean <- mean(mydata2$cage)
 mydata2$z <- c(NA)
 for (i in 1:nrow(mydata2)) {
   mydata2$z[i] <- (mydata2$cage[i] - child_mean)/child_sd
-  
 }
 
 qr_boost <- gamboost(stunting ~ 
