@@ -87,7 +87,7 @@ mycurve01 <- function(dataset,varname,varlabel,divisor){ # ,breaks_1
 dataset  <- 'mydata1'
 varname  <- 'bmi'
 varlabel <- 'BMI'
-mycurve01(mydata,varname,varlabel)
+mycurve01(dataset,varname,varlabel)
 
 #########################################
 # # Scatterplot between two variables # #
@@ -109,13 +109,26 @@ myscatter01 <- function(dataset,varname,varname2,varlabel,varlabel2,pointsz){
   (myscat <- ggplot(data=eval(parse(text = dataset)), aes(x=eval(parse(text = varname2)),
                                                           y=eval(parse(text = varname)))) + 
       geom_point(alpha = pointsz) +
-      geom_smooth(method = "gam", formula = y ~ s(x, bs = "cs"), se = TRUE) + 
-      geom_quantile(quantiles = q10, method = "rqss", lambda = 0.8) + # formula=y ~ poly(x, 3) / formula = y ~ splines::bs(x, 3)
+      geom_smooth(method = "gam", formula = y ~ s(x, bs = "cs"), se = TRUE) + # method = gam uses R-package mgcv (Wood, 2014)
+      #' This is a non-linear regression model estimating the association of varname2 with the expected value of varname, it was 
+      #' calculated using the R-package mgcv (Wood, 2014)
+      geom_quantile(quantiles = q10, formula = y ~ splines::bs(x, 6)) + # formula=y ~ poly(x, 3) | formula = y ~ splines::bs(x, 3) | method = "rqss", lambda = 0.8
       stat_summary_bin(fun.y='median', bins=maxi,    # optionally it can represent the median by changing fun.y to "median" or the mean with "mean"
                        color='orange', size=pointsz*4, geom='point') + # the orange dots represent the median, change geom='line' if desired
       labs(title=paste0("Scatterplot of ",varlabel," and ",varlabel2),x=varlabel2,y=varlabel)
   )
   myscat + theme_Publication()+scale_fill_Publication()
+  #' When modelling the quantiles conditional on the data (i.e. Q(Y|X)), we get the model as displayed in the figure. Whether the distribution is
+  #' assimetrical it can be capture by this approach by seeing the distance between the median regression and the curve for \tau = 0.6 should be
+  #' the same as the difference between the median regression and the curve for \tau = 0.4. Likewise, the distance between \tau = 0.4 and \tau = 0.3
+  #' should be the same as the differences between \tau = 0.6 and \tau = 0.7, etc.
+  #' Does this assumption holds for the quantile curves? if not...
+  #' The difference which is most obvious can be seen in the distance between the first and second (i.e., the \tau = 0.01 and \tau = 0.1) quantile
+  #' and the distance between the second to last and the last (i.e., the \tau = 0.9 and the \tau = 0.99) quantile. The later reflects the positive
+  #' skewness of the data. Additionally, the increasing difference between the \tau = 0.01 quantile and the \tau = 0.99 quantile shows how the variance
+  #' in the print(varname) increases with increasing print(varname2)
+  #' Is the mean line above or below the median? if so... the conditional distribution might be skewed.
+  #' 
 }
 
 # Figure 2
@@ -168,9 +181,9 @@ varname <- 'bmi'
 value_of_int <- 30
 the_vs_emp_prob(dataset,varname,value_of_int) 
 
-#########################
-# # 
-#' Additive quantile regression
+####################################
+# # ADDITIVE QUANTILE REGRESSION # #
+#################################### aQUI!
 #' Data example II, Stunting in India
 mydata2 <- gamboostLSS::india
 # cbmi BMI of the child
