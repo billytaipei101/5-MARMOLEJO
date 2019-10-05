@@ -59,7 +59,7 @@ scale_colour_Publication <- function(...){
 # # Normal curve over histogram of BMI # #
 ##########################################
 mydata1 <- gamlss.data::dbbmi # the Dutch boys body mass data
-mycurve01 <- function(dataset,varname,varlabel,divisor){ # ,breaks_1
+mycurve011 <- function(dataset,varname,varlabel,divisor){ # ,breaks_1
   #' The explanation of the fields are as follow
   #'  chr   dataset   <- a data frame with at least one variable, the one to be analyzed 
   #'  chr   varname   <- is the name of the variable of interest as given by str(dataset) 
@@ -92,7 +92,7 @@ mycurve01(dataset,varname,varlabel)
 #########################################
 # # Scatterplot between two variables # #
 #########################################
-myscatter01 <- function(dataset,varname,varname2,varlabel,varlabel2,pointsz){
+myscatter011 <- function(dataset,varname,varname2,varlabel,varlabel2,pointsz){
   #' The explanation of the fields are as follow
   #'  chr   dataset   <- a data frame with at least one variable, the one to be analyzed 
   #'  chr   varname   <- is the name of the 1rs variable of interest as given by str(dataset) 
@@ -138,7 +138,7 @@ varname   <- 'bmi'
 varname2  <- 'age' 
 varlabel  <- 'BMI'
 varlabel2 <- 'Age'
-myscatter01(dataset,varname,varname2,varlabel,varlabel2)
+myscatter011(dataset,varname,varname2,varlabel,varlabel2)
 #' In this figure we can see that the mean as represented by the blue line is slightly above the median as represented by the orange dots
 
 
@@ -192,33 +192,51 @@ mydata2 <- gamboostLSS::india
 # mage Age of the mother in years
 
 # First trial, using child BMI to calculate z value
-child_sd   <- sd(mydata2$cbmi)*sqrt((length(mydata2$cbmi)-1)/(length(mydata2$cbmi))) 
-child_mean <- mean(mydata2$cbmi)
-mydata2$z <- c(NA)
-for (i in 1:nrow(mydata2)) {
-  mydata2$z[i] <- (mydata2$cbmi[i] - child_mean)/child_sd
-  
-}
-# Second trial, using child age to calculate z value
-child_sd   <- sd(mydata2$cage)*sqrt((length(mydata2$cage)-1)/(length(mydata2$cage))) 
-child_mean <- mean(mydata2$cage)
-mydata2$z <- c(NA)
-for (i in 1:nrow(mydata2)) {
-  mydata2$z[i] <- (mydata2$cage[i] - child_mean)/child_sd
-}
-
+# child_sd   <- sd(mydata2$cbmi)*sqrt((length(mydata2$cbmi)-1)/(length(mydata2$cbmi))) 
+# child_mean <- mean(mydata2$cbmi)
+# mydata2$z <- c(NA)
+# for (i in 1:nrow(mydata2)) {
+#   mydata2$z[i] <- (mydata2$cbmi[i] - child_mean)/child_sd
+#   
+# }
+# # Second trial, using child age to calculate z value
+# child_sd   <- sd(mydata2$cage)*sqrt((length(mydata2$cage)-1)/(length(mydata2$cage)))
+# child_mean <- mean(mydata2$cage)
+# mydata2$z <- c(NA)
+# for (i in 1:nrow(mydata2)) {
+#   mydata2$z[i] <- (mydata2$cage[i] - child_mean)/child_sd
+# }
+# Example provided by paper on how to use gamboost
 qr_boost <- gamboost(stunting ~ 
                        cage + cbmi + bmrf(mcdist, "markov", bnd =india.bnd, center = F), # not sure whether I am selecting the correct variables for the model
                      family = QuantReg(tau = 0.3), # quantile 0.3
                      data= india)
 
-(h3 <- ggplot(mydata2, aes(y=z,x=cage)) + # This is the only way it looks like the figure in the paper, nonetheless I have to invert the z-score scale and dont know how to use the model coefficients or scores for the calculated 0.3 quantile
-    geom_point(alpha = 0.3) +
-    geom_smooth(method = "gam",formula = y ~ s(x, bs = "cs") , se=TRUE)+
-    ylim(6,-6)
-)
-#' Particularly dont know how to perform instructions in page 10: In order to be able to plot the non-linear effects into one graph, each
-#' quantile is shifted to the level of the predicted values for this quantile....
+mydata2$z <- qr_boost$response
+# Figure 3
+dataset   <- 'mydata2'
+varname   <- 'z'
+varname2  <- 'cage' 
+varlabel  <- 'z-score'
+varlabel2 <- 'Age'
+myscatter011(dataset,varname,varname2,varlabel,varlabel2) # graph similar but not the same as Figure 5 in paper???
+
+qr_boostm <- gamboost(stunting ~ 
+                       mage + mbmi + bmrf(mcdist, "markov", bnd =india.bnd, center = F), # not sure whether I am selecting the correct variables for the model
+                     family = QuantReg(tau = 0.3), # quantile 0.3
+                     data= india)
+
+
+mydata2$z_m <- qr_boostm$response # information from the mother
+# Figure 4
+dataset   <- 'mydata2'
+varname   <- 'z_m'
+varname2  <- 'mbmi' 
+varlabel  <- 'z-score'
+varlabel2 <- 'BMI of the mother'
+myscatter011(dataset,varname,varname2,varlabel,varlabel2) # graph similar but not the same as Figure 7 in paper???
+
+#' The section on implementation ond related models is quite dense
 
 #########################
 # # ADDITION TO PAPER # #
