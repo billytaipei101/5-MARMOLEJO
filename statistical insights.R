@@ -263,7 +263,35 @@ myscatter011(dataset,varname,varname2,varlabel,varlabel2) # graph similar but no
 #' Writing in progress any update will be posted here
 #'
 #' https://www.gamlss.com 
+#' 
+#' 
+#' ####################
+#' STASINOPOULOS 2018 #
+#' ####################
+#' SECTION 2
+#' General form of the GAMLSS model for any response variable distribution.
+#' SECTION 3
+#' Demonstrates GAMLSS analysis of a continuous response variable.
 
+mydata3 <- gamlss.data::dbhh
+
+#' SECTION 3.2 models height agains a single explanatory variable age in Dutch boys, it focus on obtainig centiles for the response variable.
+#' 
+#' Distributions
+#' NO - normal
+mNO  <- gamlss(head ~ 1, data = lice, family = NO, weights = freq, trace = FALSE)
+#' BCCGo
+BCCG()
+#' BCPEo
+BCPE()
+#' BCTo
+BCT()
+
+#' SECTION 3.3 models head circumference against two explanatory variables height and age it focus on obtainig centiles for the response variable.
+#' SECTION 4 
+#' Demonstrates GAMLSS analsysis of a discrete response variable using different discrete distributions. 
+
+s
 
 
 
